@@ -1,0 +1,19 @@
+/* Set the width and height to auto */
+.ReactModal__Content {
+  width: auto;
+  height: auto;
+}
+
+/* Adjust max width and max height if needed */
+.ReactModal__Content--after-open {
+  max-width: 100%; /* Adjust this value as needed */
+  max-height: 100%; /* Adjust this value as needed */
+}
+
+.red-background {
+  background-color: rgba(226, 99, 99, 0.648);
+}
+
+.green-background {
+  background-color: rgba(103, 195, 103, 0.658);
+}
