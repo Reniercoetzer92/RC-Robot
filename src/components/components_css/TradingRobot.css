@@ -11,12 +11,11 @@ body {
 
 /* Style for the entire TradingRobot component */
 div {
-max-width: 1000px;
+max-width: 100vh;
 margin: 20px auto;
 padding: 20px;
 border: 1px solid #cccccc2a;
 border-radius: 5px;
-box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
 
 /* Style for the Market Data table */
@@ -72,7 +71,7 @@ align-items: center;
 }
 
 .settings-button-container {
-margin-left: 300px;
+margin-left: 100px;
 text-decoration-line: none;
 border: none;
 outline: none;

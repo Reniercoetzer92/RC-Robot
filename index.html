@@ -8,20 +8,6 @@
   </head>
   <body>
     <div id="root"></div>
-    <script>
-      document.addEventListener('DOMContentLoaded', function () {
-        // Make an HTTP request to trigger the Python script execution
-        fetch('http://localhost:5176/run_python_script', { method: 'POST' })
-          .then(response => {
-            if (!response.ok) {
-              throw new Error(`HTTP error! Status: ${response.status}`);
-            }
-            return response.json();
-          })
-          .then(data => console.log(data))
-          .catch(error => console.error(error));
-      });
-    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

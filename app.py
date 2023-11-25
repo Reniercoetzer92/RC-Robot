@@ -4,7 +4,6 @@ from flask_socketio import SocketIO
 from flask_cors import CORS
 from binance.client import Client
 from binance.enums import ORDER_TYPE_MARKET
-from flask import jsonify
 import json
 import talib
 import numpy as np
@@ -14,6 +13,18 @@ import websocket
 import csv
 import time
 import os
+
+RSI_PERIOD = 14
+RSI_OVERBOUGHT = 70
+RSI_OVERSOLD = 30
+TRADE_QUANTITY = 0.03
+closes = []
+closes_eth = []
+closes_bnb = []
+closes_btc = []
+last_candle_timestamp = None
+in_position = False
+client = Client(config.API_KEY, config.API_SECRET)
 
 file_paths = [
     'data/BNBUSDTdata.csv',
@@ -25,26 +36,25 @@ app = Flask(__name__)
 CORS(app)
 socketio = SocketIO(app, async_mode='threading')
 
-SOCKET_ETH = "wss://stream.binance.com:9443/ws/ethusdt@kline_1m"
+trading_symbol = [
+    'ETH',
+    'BNB',
+    'BTC',
+]
+
+intervals = [
+    '1m',
+    '5m',
+    '15m',
+    '30m',
+    '1h',
+]
+
+trading_symbol_usdt = "USDT"
+
 TRADE_SYMBOL_ETH = "ETHUSDT"
-
-SOCKET_BNB = "wss://stream.binance.com:9443/ws/bnbusdt@kline_1m"
 TRADE_SYMBOL_BNB = "BNBUSDT"
-
-SOCKET_BTC = "wss://stream.binance.com:9443/ws/btcusdt@kline_1m"
 TRADE_SYMBOL_BTC = "BTCUSDT"
-
-RSI_PERIOD = 2
-RSI_OVERBOUGHT = 70
-RSI_OVERSOLD = 30
-TRADE_QUANTITY = 0.03
-closes = []
-closes_eth = []
-closes_bnb = []
-closes_btc = []
-last_candle_timestamp = None
-in_position = False
-client = Client(config.API_KEY, config.API_SECRET)
 
 
 def order(side, quantity, symbol, order_type=ORDER_TYPE_MARKET):
@@ -70,7 +80,7 @@ def on_close(ws):
     print("closed connection")
 
 
-def on_message(ws, message, symbol):
+def on_message(ws, message, symbol, interval):
     global closes_eth, closes_bnb, closes_btc, in_position
 
     print(f'Received message for {symbol}: {message}')
@@ -164,7 +174,7 @@ def on_message(ws, message, symbol):
                 print("Data emitted to front end:", data)
 
                 # Write data to specific CSV files for each symbol
-                csv_file_path = f'data/{symbol}data.csv'
+                csv_file_path = f'data/{symbol}-data-{interval}.csv'
                 write_data_to_csv(csv_file_path, symbol, data)
 
     except Exception as e:
@@ -209,14 +219,17 @@ def write_data_to_csv(csv_file_path, symbol, data):
         writer.writerow(row_data)
 
 
-def start_websocket(symbol, socket_url):
+def start_websocket(symbol, interval, socket_url):
     while True:
         try:
             # Create WebSocketApp instance
             ws = websocket.WebSocketApp(socket_url,
                                         on_open=on_open,
                                         on_close=on_close)
-            ws.on_message = lambda ws, msg: on_message(ws, msg, symbol)
+            ws.on_message = lambda ws, msg: on_message(ws,
+                                                       msg,
+                                                       symbol,
+                                                       interval)
 
             # Run WebSocket connection
             ws.run_forever()
@@ -230,32 +243,25 @@ def start_websocket(symbol, socket_url):
             time.sleep(5)
 
 
-@app.route('/run_python_script', methods=['POST'])
-def run_python_script():
-    # Execute your Python script here
-    os.system('/app.py')
-    return jsonify({'status': 'success'})
-
-
 if __name__ == '__main__':
-    socketio.run(app, debug=True, threaded=True)
+    basepath = "wss://stream.binance.com:9443/ws/"
+    sockets = []
+    for symbol in trading_symbol:
+        for interval in intervals:
+            # Corrected string concatenation
+            socket = f"{basepath}{symbol}{trading_symbol_usdt}@kline_{interval}".lower()
 
-    websocket_thread_eth = threading.Thread(
-        target=start_websocket, args=(TRADE_SYMBOL_ETH, SOCKET_ETH)
-    )
-    websocket_thread_bnb = threading.Thread(
-        target=start_websocket, args=(TRADE_SYMBOL_BNB, SOCKET_BNB)
-    )
-    websocket_thread_btc = threading.Thread(
-        target=start_websocket, args=(TRADE_SYMBOL_BTC, SOCKET_BTC)
-    )
+            print(socket)
 
-    # Start all WebSocket threads
-    websocket_thread_eth.start()
-    websocket_thread_bnb.start()
-    websocket_thread_btc.start()
+            # Create a WebSocket thread and append it to the list
+            websocket_thread = threading.Thread(
+                target=start_websocket, args=(
+                    f"{symbol}{trading_symbol_usdt}".upper(), interval, socket)
+            )
+            sockets.append(websocket_thread)
 
-    # Wait for all WebSocket threads to finish
-    websocket_thread_eth.join()
-    websocket_thread_bnb.join()
-    websocket_thread_btc.join()
+    for websocket_thread in sockets:
+        websocket_thread.start()
+
+    for websocket_thread in sockets:
+        websocket_thread.join()

@@ -5,7 +5,8 @@ import PropTypes from 'prop-types';
 import "./components_css/BinanceAPIDialog.css"
 
 const BinanceAPIDialog = ({ isOpen, onClose }) => {
-  const [selectedCoin, setSelectedCoin] = useState('ETH'); // Default coin is ETH
+  const [selectedCoin, setSelectedCoin] = useState('BTC'); // Default coin is ETH
+  const [interval, setInterval] = useState('1m'); // Default interval is 1m
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -13,12 +14,16 @@ const BinanceAPIDialog = ({ isOpen, onClose }) => {
     setSelectedCoin(e.target.value);
   };
 
+  const handleIntervalChange = (e) => {
+    setInterval(e.target.value);
+  };
+
   const fetchData = useCallback(() => {
     setLoading(true);
 
     // Append a timestamp to the URL to avoid caching
     const timestamp = new Date().getTime();
-    const url = `data/${selectedCoin}USDTdata.csv?timestamp=${timestamp}`;
+    const url = `data/${selectedCoin}USDT-data-${interval}.csv?timestamp=${timestamp}`;
 
     // Fetch data when the selected coin changes
     fetch(url)
@@ -40,7 +45,7 @@ const BinanceAPIDialog = ({ isOpen, onClose }) => {
           },
         });
       });
-  }, [selectedCoin]);
+  }, [selectedCoin, interval]);
 
   useEffect(() => {
     fetchData();
@@ -63,11 +68,21 @@ const BinanceAPIDialog = ({ isOpen, onClose }) => {
           <option value="BNB">BNB</option>
         </select>
       </label>
+      <label>
+        Select Coin:
+        <select value={interval} onChange={handleIntervalChange}>
+          <option value="1M">1m</option>
+          <option value="5M">5m</option>
+          <option value="15M">15m</option>
+          <option value="30M">30m</option>
+          <option value="1H">1h</option>
+        </select>
+      </label>
 
       {loading ? (
         <p>Loading...</p>
       ) : (
-        <div>
+        <div className='table_info'>
           <p>Displaying data for {selectedCoin}</p>
           <table>
             <thead>

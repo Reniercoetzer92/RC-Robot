@@ -19,6 +19,11 @@ const Option = ({ label, value, options, onChange }) => (
   </div>
 );
 
+const getChangeSymbol = (change) => {
+  return change > 0 ? '+' : (change < 0 ? '-' : '');
+};
+
+
 // Define the TradingRobot component
 const TradingRobot = () => {
   // Define state variables for options and settings
@@ -45,7 +50,7 @@ const TradingRobot = () => {
   const strategyOptions = ['MA_Crossover', 'RSI_Overbought', 'CustomStrategy'];
 
   // Define kline interval options
-  const klineIntervalOptions = ['1m', '5m', '15m', '1h', '4h', '1d'];
+  const klineIntervalOptions = ['1m', '5m', '15m', '30m', '1h', ];
 
   // Define token options
   const tokenOptions = useMemo(() => ['BNB', 'ETH', 'BTC'], []);
@@ -126,11 +131,12 @@ const TradingRobot = () => {
           </tr>
         </thead>
         <tbody>
+          {/* Inside the tbody */}
           {marketData.map((data) => (
             <tr key={data.symbol}>
               <td>{data.symbol}</td>
               <td>{data.price}</td>
-              <td>{data.change}</td>
+              <td>{`${getChangeSymbol(data.change)}${data.change}`}</td>
             </tr>
           ))}
         </tbody>
