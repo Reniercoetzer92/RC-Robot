@@ -1,12 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import Modal from 'react-modal';
-import Papa from 'papaparse';
 import PropTypes from 'prop-types';
-import "./components_css/BinanceAPIDialog.css"
+import './components_css/BinanceAPIDialog.css';
 
 const BinanceAPIDialog = ({ isOpen, onClose }) => {
-  const [selectedCoin, setSelectedCoin] = useState('BTC'); // Default coin is ETH
-  const [interval, setInterval] = useState('1m'); // Default interval is 1m
+  const [selectedCoin, setSelectedCoin] = useState('');
+  const [interval, setInterval] = useState('');
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -18,38 +17,39 @@ const BinanceAPIDialog = ({ isOpen, onClose }) => {
     setInterval(e.target.value);
   };
 
-  const fetchData = useCallback(() => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
 
-    // Append a timestamp to the URL to avoid caching
-    const timestamp = new Date().getTime();
-    const url = `data/${selectedCoin}USDT-data-${interval}.csv?timestamp=${timestamp}`;
+    try {
+      const bucketName = 'rc-robot-binance-api';
+      const fileName = `${selectedCoin.toUpperCase()}USDT-data-${interval}.json`;
+      const url = `https://storage.googleapis.com/${bucketName}/data/${fileName}`;
 
-    // Fetch data when the selected coin changes
-    fetch(url)
-      .then((response) => response.text())
-      .then((csvData) => {
-        Papa.parse(csvData, {
-          header: true,
-          complete: (result) => {
-            const validRows = result.data
-              .slice(-21)
-              .filter(row => {
-                // Filter out rows with invalid dates or other invalid values
-                const eventTime = new Date(Number(row.event_time));
-                return !isNaN(eventTime.getTime()) && !isNaN(parseFloat(row.rsi));
-              });
+      console.log('Fetching data from:', url);
 
-            setData(validRows);
-            setLoading(false);
-          },
-        });
-      });
+      const response = await fetch(url);
+
+      console.log('Response status:', response.status);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+
+      const jsonData = await response.json();
+
+      console.log('Fetched JSON Data:', jsonData);
+
+      setData(jsonData);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      setLoading(false);
+    }
   }, [selectedCoin, interval]);
 
   useEffect(() => {
     fetchData();
-  }, [fetchData]); // Add fetchData to the dependency array
+  }, [fetchData]);
 
   return (
     <Modal isOpen={isOpen} onRequestClose={onClose}>
@@ -63,14 +63,16 @@ const BinanceAPIDialog = ({ isOpen, onClose }) => {
       <label>
         Select Coin:
         <select value={selectedCoin} onChange={handleCoinChange}>
+          <option value="">Select Coin</option>
           <option value="BTC">BTC</option>
           <option value="ETH">ETH</option>
           <option value="BNB">BNB</option>
         </select>
       </label>
       <label>
-        Select Coin:
+        Select Interval:
         <select value={interval} onChange={handleIntervalChange}>
+          <option value="">Select Interval</option>
           <option value="1M">1m</option>
           <option value="5M">5m</option>
           <option value="15M">15m</option>
@@ -82,12 +84,11 @@ const BinanceAPIDialog = ({ isOpen, onClose }) => {
       {loading ? (
         <p>Loading...</p>
       ) : (
-        <div className='table_info'>
+        <div className="table_info">
           <p>Displaying data for {selectedCoin}</p>
           <table>
             <thead>
               <tr>
-                {/* Remove the 'Symbol' column */}
                 <th>Event Time</th>
                 <th>Open</th>
                 <th>High</th>
@@ -96,24 +97,29 @@ const BinanceAPIDialog = ({ isOpen, onClose }) => {
                 <th>RSI</th>
                 <th>Median Close</th>
                 <th>Moving Average</th>
-                {/* Add more table headers based on your CSV structure */}
               </tr>
             </thead>
             <tbody>
               {data.map((row, index) => (
                 <tr key={index}>
-                  {/* Remove the 'symbol' column */}
-                  <td>{new Date(Number(row.event_time)).toLocaleString()}</td>
-                  <td>{parseFloat(row.open).toFixed(2)}</td>
-                  <td>{parseFloat(row.high).toFixed(2)}</td>
-                  <td>{parseFloat(row.low).toFixed(2)}</td>
-                  <td>{parseFloat(row.close).toFixed(2)}</td>
-                  <td className={parseInt(row.rsi) > 70 ? 'red-background' : parseInt(row.rsi) < 30 ? 'green-background' : ''}>
+                  <td>{row.eventTime}</td>
+                  <td>{row.open}</td>
+                  <td>{row.high}</td>
+                  <td>{row.low}</td>
+                  <td>{row.close}</td>
+                  <td
+                    className={
+                      parseInt(row.rsi) > 70
+                        ? 'red-background'
+                        : parseInt(row.rsi) < 30
+                        ? 'green-background'
+                        : ''
+                    }
+                  >
                     {parseInt(row.rsi)}
                   </td>
-                  <td>{parseFloat(row.median_close).toFixed(2)}</td>
-                  <td>{parseFloat(row.moving_average).toFixed(2)}</td>
-                  {/* Add more table cells based on your CSV structure */}
+                  <td>{row.medianClose}</td>
+                  <td>{row.movingAverage}</td>
                 </tr>
               ))}
             </tbody>
@@ -124,11 +130,11 @@ const BinanceAPIDialog = ({ isOpen, onClose }) => {
       <button onClick={onClose}>Close</button>
     </Modal>
   );
-}
+};
 
 BinanceAPIDialog.propTypes = {
   isOpen: PropTypes.bool.isRequired,
-  onClose: PropTypes.func.isRequired, 
+  onClose: PropTypes.func.isRequired,
 };
 
 export default BinanceAPIDialog;
