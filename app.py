@@ -57,7 +57,7 @@ def order(side, quantity, symbol, order_type=ORDER_TYPE_MARKET):
             type=order_type,
             quantity=quantity
         )
-        # print(order)
+        print(order)
         return True
     except Exception as e:   # noqa: F841
         return False
@@ -166,46 +166,35 @@ def on_message(ws, message, symbol, interval):
                 # print("Data emitted to front end:", data)
 
                 # Write data to Google Cloud Storage
-                write_data_to_csv('rc-robot-binance-api', symbol, interval, data)
+                write_data_to_gcs('rc-robot-binance-api', symbol, interval, data)
 
     except Exception as e:
-        # print(f"Error processing message for {symbol}: {e}")
+        print(f"Error processing message for {symbol}: {e}")
         return
 
 
-def write_data_to_csv(bucket_name, symbol, interval, data):
+def write_data_to_gcs(bucket_name, symbol, interval, data):
     storage_client = storage.Client()
     bucket = storage_client.bucket(bucket_name)
-    file_name = f'data/{symbol}-data-{interval}.csv'
+    file_name = f'data/{symbol}-data-{interval}.json'
 
     blob = bucket.blob(file_name)
 
-    csv_data = {
-        "symbol": symbol,
-        "event_time": data["event_time"],
-        "open": data["open"],
-        "high": data["high"],
-        "low": data["low"],
-        "close": data["close"],
-        "rsi": data["rsi"],
-        "median_close": data["median_close"],
-        "moving_average": data["moving_average"]
-    }
-
     try:
-        # Download existing content or create an empty string if the file doesn't exist
-        existing_content = blob.download_as_text() if blob.exists() else ""
+        # Download existing content or create an empty list if the file doesn't exist
+        existing_content = json.loads(blob.download_as_text()) if blob.exists() else []
 
-        # Create a CSV writer and append the new data
-        csv_lines = [','.join(csv_data.keys())]  # Header
-        csv_lines.append(','.join(str(value) for value in csv_data.values()))  # Data
-        updated_content = existing_content + '\n'.join(csv_lines)
+        # Append the new data to the existing content
+        existing_content.append(data)
 
         # Upload the updated content back to the blob
-        blob.upload_from_string(updated_content, content_type='text/csv')
+        blob.upload_from_string(
+            json.dumps(existing_content),
+            content_type='application/json'
+        )
 
     except Exception as e:
-        print(f"Error writing data to CSV for {symbol}: {e}")
+        print(f"Error writing data to JSON for {symbol}: {e}")
 
     # print(f"File {file_name} uploaded to {bucket_name}.")
 

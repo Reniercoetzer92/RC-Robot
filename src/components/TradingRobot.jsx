@@ -139,7 +139,7 @@ const TradingRobot = () => {
       </div>
       <table>
         <thead>
-          <tr>
+          <tr className='table-header'>
             <th>Symbol</th>
             <th>Price</th>
             <th>Change (24h %)</th>

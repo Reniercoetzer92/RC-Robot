@@ -6,22 +6,41 @@
   background-color: rgba(145, 251, 145, 0.658);
 }
 
-/* Add this to your CSS file, adjust as needed */
-.table-container table {
-  border-collapse: collapse;
+.table_info {
+  max-height: 500px; 
+  overflow-y: auto;
 }
 
-.table-container th, .table-container td {
-  border: 1px solid #ddd; /* Add this line to set a single border */
-  padding: 8px; /* Add padding for better spacing */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+thead {
+  background-color: #f2f2f2;
+}
+
+th, td {
+  padding: 8px;
   text-align: left;
 }
 
-.table-container th {
-  background-color: #f2f2f2; /* Add background color for header row */
+
+thead, tbody {
+  display: block;
 }
 
-.table_info {
-  width: fit-content;
-  height: auto;
+tbody {
+  height: 250px; 
+  overflow-y: auto;
+}
+
+
+th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background-color: #f2f2f2;
 }
