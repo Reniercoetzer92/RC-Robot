@@ -98,3 +98,14 @@ margin-bottom: 10px;
 .custom-strategy-container button {
 margin-left: 10px;
 }
+
+.thead tr, th{
+  background-color: #4da5be;
+  background: #2e87a0;
+}
+
+.disabled-button {
+  background-color: #ccc; /* Gray background */
+  color: #666; /* Dark gray text color */
+  cursor: not-allowed; /* Change cursor on hover */
+}
