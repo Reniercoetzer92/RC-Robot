@@ -9,22 +9,27 @@ import json
 import numpy as np
 import threading
 import time
-from google.cloud import storage
+import config
+import csv
 import os
 
-# Set the path to your JSON key file
-json_key_file = "fleet-bus-406205-5ec1e3043ec6.json"
-
-# Get the full path to the JSON key file
-json_key_file_path = os.path.abspath(json_key_file)
-
-# Set the GOOGLE_APPLICATION_CREDENTIALS environment variable
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = json_key_file_path
-
-API_KEY = "SBEJtJ8d8gxKiEe9jZh2FfSTjDutZKCtV8xrJzJJXMFqXFi37DYWNtAe0MEsgBQb"
-API_SECRET = "oOMCGcLzzDHn98Wx3yZoZgAji3OsDq5BdfWOqMXfYKCGhf6ekXatAsb1L2V7yQoJ"
+# CSV file path
+csv_file_path = 'data/trading_data.csv'
 
 bucket_name = 'rc-robot-binance-api'
+
+# CSV header
+csv_header = [
+    'Event Time',
+    'Open',
+    'High',
+    'Low',
+    'Close',
+    'RSI',
+    'Median Close',
+    'Moving Average'
+    ]
+
 
 RSI_PERIOD = 14
 RSI_OVERBOUGHT = 70
@@ -33,11 +38,15 @@ closes_eth = []
 closes_bnb = []
 closes_btc = []
 in_position = False
-client = Client(API_KEY, API_SECRET)
+client = Client(config.API_KEY, config.API_SECRET)
 
 app = Flask(__name__)
 CORS(app)
 socketio = SocketIO(app, async_mode='threading')
+
+# Directory for CSV files
+csv_directory = 'data/csv_files'
+os.makedirs(csv_directory, exist_ok=True)
 
 trading_symbol = ['ETH', 'BNB', 'BTC']
 intervals = ['1m', '5m', '15m', '30m', '1h']
@@ -46,6 +55,15 @@ trading_symbol_usdt = "USDT"
 TRADE_SYMBOL_ETH = "ETHUSDT"
 TRADE_SYMBOL_BNB = "BNBUSDT"
 TRADE_SYMBOL_BTC = "BTCUSDT"
+
+# Open CSV file in write mode and write the header
+with open(csv_file_path, 'w', newline='') as csv_file:
+    csv_writer = csv.writer(csv_file)
+    csv_writer.writerow(csv_header)
+
+
+def get_csv_file_path(symbol, interval):
+    return os.path.join(csv_directory, f'{symbol}_{interval}_trading_data.csv')
 
 
 def order(side, quantity, symbol, order_type=ORDER_TYPE_MARKET):
@@ -122,81 +140,69 @@ def on_message(ws, message, symbol, interval):
             # print(current_closes)
 
             # print("Length of Closes:", len(current_closes))
-            if len(current_closes) > RSI_PERIOD:
+            if len(current_closes) >= RSI_PERIOD:
                 np_closes = np.array(current_closes)
                 last_rsi = calculate_rsi(np_closes)
-                # print("Closes array:", np_closes)
-                # print("Last RSI:", last_rsi)
 
-                # Calculate and print the median
                 median_close = np.median(np_closes)
-                # print("Median Close:", median_close)
 
-                # Check RSI conditions
                 if last_rsi < RSI_OVERSOLD and not in_position:
-                    # print("Buy buy buy!")
                     in_position = True
-                    # You can place your buy order
-                    # here using the order() function
+                    # You can place your buy order here using the order() function
 
                 elif last_rsi > RSI_OVERBOUGHT and in_position:
-                    # print("Sell sell sell!")
                     in_position = False
-                    # You can place your sell order
-                    # here using the order() function
+                    # You can place your sell order here using the order() function
 
-            # Calculate the simple moving average (SMA)
-            if len(current_closes) >= RSI_PERIOD:
-                moving_average = np.mean(current_closes[-RSI_PERIOD:])
-                # print("Moving Average:", moving_average)
+                if len(current_closes) >= RSI_PERIOD:
+                    moving_average = np.mean(current_closes[-RSI_PERIOD:])
 
-                # Emit the data to the front end
-                data = {
-                    "symbol": symbol,
-                    "event_time": event_time,
-                    "open": open_price,
-                    "high": high_price,
-                    "low": low_price,
-                    "close": close,
-                    "rsi": last_rsi,
-                    "median_close": median_close,
-                    "moving_average": moving_average
+                    # Write data to CSV
+                    data = {
+                        "symbol": symbol,
+                        "event_time": event_time,
+                        "open": open_price,
+                        "high": high_price,
+                        "low": low_price,
+                        "close": close,
+                        "rsi": last_rsi,
+                        "median_close": median_close,
+                        "moving_average": moving_average
                     }
-                socketio.emit('update_data', json.dumps(data))
-                # print("Data emitted to front end:", data)
 
-                # Write data to Google Cloud Storage
-                write_data_to_gcs('rc-robot-binance-api', symbol, interval, data)
+                    csv_file_path = get_csv_file_path(symbol, interval)
+                    write_data_to_csv(csv_file_path, data)
 
     except Exception as e:
         print(f"Error processing message for {symbol}: {e}")
         return
 
 
-def write_data_to_gcs(bucket_name, symbol, interval, data):
-    storage_client = storage.Client()
-    bucket = storage_client.bucket(bucket_name)
-    file_name = f'data/{symbol}-data-{interval}.json'
-
-    blob = bucket.blob(file_name)
-
-    try:
-        # Download existing content or create an empty list if the file doesn't exist
-        existing_content = json.loads(blob.download_as_text()) if blob.exists() else []
-
-        # Append the new data to the existing content
-        existing_content.append(data)
-
-        # Upload the updated content back to the blob
-        blob.upload_from_string(
-            json.dumps(existing_content),
-            content_type='application/json'
-        )
-
-    except Exception as e:
-        print(f"Error writing data to JSON for {symbol}: {e}")
-
-    # print(f"File {file_name} uploaded to {bucket_name}.")
+def write_data_to_csv(csv_file_path, data):
+    with open(csv_file_path, 'a', newline='') as csv_file:
+        csv_writer = csv.writer(csv_file)
+        if os.path.getsize(csv_file_path) == 0:  # Check if file is empty
+            csv_writer.writerow(['Symbol',
+                                 'Event Time',
+                                 'Open',
+                                 'High',
+                                 'Low',
+                                 'Close',
+                                 'RSI',
+                                 'Median Close',
+                                 'Moving Average'
+                                 ])
+        csv_writer.writerow([
+            data['symbol'],
+            data['event_time'],
+            data['open'],
+            data['high'],
+            data['low'],
+            data['close'],
+            data['rsi'],
+            data['median_close'],
+            data['moving_average']
+        ])
 
 
 def start_websocket(symbol, interval, socket_url):
@@ -204,7 +210,7 @@ def start_websocket(symbol, interval, socket_url):
         try:
             # Create WebSocket connection
             ws = create_connection(socket_url)
-            # print("Opened connection")
+            print("Opened connection")
 
             # Run WebSocket connection
             while True:
@@ -218,7 +224,7 @@ def start_websocket(symbol, interval, socket_url):
         finally:
             # Close the WebSocket connection
             ws.close()
-            # print("Closed connection")
+            print("Closed connection")
 
             # Add a delay before retrying the connection
             time.sleep(5)
@@ -227,14 +233,11 @@ def start_websocket(symbol, interval, socket_url):
 if __name__ == '__main__':
     basepath = "wss://stream.binance.com:9443/ws/"
     sockets = []
+
     for symbol in trading_symbol:
         for interval in intervals:
-            # Corrected string concatenation
             socket = f"{basepath}{symbol}{trading_symbol_usdt}@kline_{interval}".lower()
 
-            # print(socket)
-
-            # Create a WebSocket thread and append it to the list
             websocket_thread = threading.Thread(
                 target=start_websocket, args=(
                     f"{symbol}{trading_symbol_usdt}".upper(), interval, socket)

@@ -31,9 +31,6 @@ text-align: left;
 border: 1px solid #dddddd12;
 }
 
-th {
-background-color: #f2f2f2;
-}
 
 /* Style for the form */
 form {
@@ -78,7 +75,7 @@ outline: none;
 }
 
 .settings-button {
-color: white;
+color: rgb(255, 255, 255);
 background-color: #4da5be;
 color: black;
 padding: 3px 12px;
@@ -99,13 +96,9 @@ margin-bottom: 10px;
 margin-left: 10px;
 }
 
-.thead tr, th{
-  background-color: #4da5be;
-  background: #2e87a0;
-}
 
 .disabled-button {
-  background-color: #ccc; /* Gray background */
+  background-color: #cccccc; /* Gray background */
   color: #666; /* Dark gray text color */
   cursor: not-allowed; /* Change cursor on hover */
 }
