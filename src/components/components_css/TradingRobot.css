@@ -102,3 +102,8 @@ margin-left: 10px;
   color: #666; /* Dark gray text color */
   cursor: not-allowed; /* Change cursor on hover */
 }
+
+tbody {
+  height: 150px; 
+  overflow-y: auto;
+}

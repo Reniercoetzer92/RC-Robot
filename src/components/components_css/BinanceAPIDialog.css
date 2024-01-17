@@ -34,11 +34,6 @@ thead, tbody {
 }
 
 
-tbody {
-  height: 250px; 
-  overflow-y: auto;
-}
-
 .Dialog th{
   background: #4da5be;
 }
